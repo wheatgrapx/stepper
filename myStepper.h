@@ -16,28 +16,49 @@
 #define limit_bottom_left 8
 #define limit_bottom_right 9
 
+#define motor_clamp_top 10
+#define motor_clamp_bottom 11
+
 class myStepper {
   private:
-    int limit_left;   // input pin of left limit switch
-    int limit_right;  // input pin of right limit switch
-    float speed_default;
-    int dist_rev;
+    
+
   public:
     AccelStepper stepper;
+    int limit_left;   // input pin of left limit switch
+    int limit_right;  // input pin of right limit switch
+    int dist_rev;
     
-    myStepper(AccelStepper s, int l, int r, float v, int rev);
+    myStepper();
+    myStepper(AccelStepper s, int l, int r, int rev);
     void set(float max_speed, float accel);
-    long move(long position);                             // move with speed_default
     void setSpeed(float speed);
     bool limit();                                         // return true if any limit switch is on
-    void awayFromLimit(long prev_position);
+    bool awayFromLimit(long prev_position);
+    long getStepperPosition();
+    long getTarget();
+    void run();
+    void moveRelative(long position);
+};
+
+class clamp_system {
+  private:
+    bool have_top;
+    myStepper stepper;
+    myStepper stepper_on_top;
+    int motor_clamp_pin;
+
+  public:
+    clamp_system(myStepper stepper, int motor_clamp_pin, bool have_top);
+    clamp_system(myStepper stepper, myStepper stepper_on_top, int motor_clamp_pin, bool have_top);
+    long move(long position);                             // move with speed_default
+    long syncMove(long top, long bottom);
 };
 
 void constSpeed(AccelStepper* stepper, float speed, long position);
-void multi(MultiStepper steppers, long positions[2], myStepper top, myStepper bottom);
 void withAccel(AccelStepper* stepper, long position);
 void homing(myStepper top, myStepper bottom);  // move all stepper motors to the right end and set the position as 0 
-long syncMove(MultiStepper steppers, long top, long bottom, myStepper stepper_top, myStepper stepper_bottom);
+
 
 extern float speed_set;
 extern int step_rev;
