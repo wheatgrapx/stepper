@@ -27,9 +27,10 @@ void myStepper::set(float max_speed, float accel) {
 
 
 // return true if limit is reached
-bool myStepper::limit() {
-  bool reached = !digitalRead(limit_left) || !digitalRead(limit_right);
-  return reached;
+int myStepper::limit() {
+  if(!digitalRead(limit_left)) return 1;
+  else if (!digitalRead(limit_right)) return 2;
+  else return 0;
 }
 
 
@@ -123,11 +124,11 @@ void homing(myStepper top, myStepper bottom) {
   int start = millis();
   while(true) {
     if(top.limit() && bottom.limit()) break;  // exit the while loop when both limits are reached
-    if(!top.limit()) {                        // stop top motor when limit is reached
+    if(top.limit() == 0) {                        // stop top motor when limit is reached
       top.run();
       Serial.print("top");
     }
-    if(!bottom.limit()) {                     // stop bottom motor when limit is reached
+    if(bottom.limit() == 0) {                     // stop bottom motor when limit is reached
       bottom.run();
       Serial.print("bottom");
     }
@@ -251,10 +252,71 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
   steppers.moveTo(positions);
   int start = millis();
   while(true) {
-    bool limit_bottom = stepper.limit();
-    bool limit_top = stepper_on_top.limit();
+    int limit_bottom = stepper.limit();
+    int limit_top = stepper_on_top.limit();
     if(limit_bottom) {
-      stepper.awayFromLimit(temp_bottom);
+      long dist_to_prev = abs(stepper_on_top.getStepperPosition() - temp_top);
+      long positions_back[2];
+      int step_bottom_predef = step_rev / 4;
+      int step_top_predef = step_bottom_predef * 125 / 72;
+      Serial.println("hi");
+      Serial.println(dist_to_prev);
+      Serial.println(step_top_predef);
+
+      if(dist_to_prev <= step_top_predef) {
+        positions_back[0] = temp_top;
+        positions_back[1] = temp_bottom;
+      }
+      else {
+        if(limit_bottom == 1) {
+          positions_back[0] = -step_top_predef + stepper_on_top.getStepperPosition();
+          positions_back[1] = step_bottom_predef + stepper.getStepperPosition();
+        }
+        else if(limit_bottom == 2) {
+          positions_back[0] = step_top_predef + stepper_on_top.getStepperPosition();
+          positions_back[1] = -step_bottom_predef + stepper.getStepperPosition();
+        }
+      }
+      steppers.moveTo(positions_back);
+      steppers.runSpeedToPosition();
+      delay(2000);
+      
+      long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
+      long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
+      // Serial.println("dist");
+      // Serial.print(stepper.getStepperPosition());
+      // Serial.print("\t");
+      // Serial.print(temp_bottom);
+      // Serial.print("\t");
+      // Serial.print(dist_bottom_moved);
+      // Serial.print("\t");
+      // Serial.println(dist_bottom_not_moved);
+
+      // Serial.print(motor_clamp_pin);
+      // Serial.println(" catheter clamped");
+
+      long step_bottom_sync = 6000;
+      long step_top_sync = step_bottom_sync * 125 / 72;
+      Serial.println(limit_bottom);
+      if(limit_bottom == 2) step_bottom_sync = -step_bottom_sync;
+      else if(limit_bottom == 1) step_top_sync = -step_top_sync;
+      Serial.println(step_bottom_sync);
+      Serial.println("pushback");
+      syncMove(step_top_sync, step_bottom_sync);
+
+      Serial.print(motor_clamp_pin);
+      // Serial.println(" cathether released");
+      // Serial.println(" guidewire clamped");
+
+      // Serial.println("stepper on top move back");
+      stepper_on_top.moveRelative(step_rev);
+
+      // Serial.println(" guidewire released");
+
+      Serial.println("continue the motion");
+      long dist_top_not_moved = dist_bottom_not_moved * 125 / 72;
+      syncMove(dist_top_not_moved, dist_bottom_not_moved);
+      
       Serial.println("sync - bottom limit");
       break;
     }
@@ -272,6 +334,10 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
 
   long dist = ((stepper_on_top.getStepperPosition() - temp_top) * 72 + (stepper.getStepperPosition() - temp_bottom) * 125) / step_rev;
   return dist;
+}
+
+void clamp_system::awayFromLimitSync(MultiStepper steppers, long position[]) {
+
 }
 
 

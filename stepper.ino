@@ -55,17 +55,17 @@ void loop() {
     // position -= system_top.move(dist);
     // Serial.println(position);
     // delay(1000);
-    position -= system_bottom.move(dist);
-    Serial.println(position);
-    delay(1000);
+    // position -= system_bottom.move(dist);
+    // Serial.println(position);
+    // delay(1000);
 
     long step_bottom = dist;
     long step_top = step_bottom * 125 / 72;
     
-    // Serial.println("top conveyor stay still");
-    // position -= system_bottom.syncMove(-step_top, step_bottom);
-    // Serial.println(position);
-    // delay(1000);
+    Serial.println("top conveyor stay still");
+    position -= system_bottom.syncMove(-step_top, step_bottom);
+    Serial.println(position);
+    delay(1000);
     // position -= system_bottom.syncMove(step_top, -step_bottom);
     // Serial.println(position);
     // delay(1000);

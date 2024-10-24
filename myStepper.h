@@ -33,7 +33,7 @@ class myStepper {
     myStepper(AccelStepper s, int l, int r, int rev);
     void set(float max_speed, float accel);
     void setSpeed(float speed);
-    bool limit();                                         // return true if any limit switch is on
+    int limit();                                         // return true if any limit switch is on
     bool awayFromLimit(long prev_position);
     long getStepperPosition();
     long getTarget();
@@ -53,6 +53,7 @@ class clamp_system {
     clamp_system(myStepper stepper, myStepper stepper_on_top, int motor_clamp_pin, bool have_top);
     long move(long position);                             // move with speed_default
     long syncMove(long top, long bottom);
+    void awayFromLimitSync(MultiStepper steppers, long position[]);
 };
 
 void constSpeed(AccelStepper* stepper, float speed, long position);
