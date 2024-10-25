@@ -3,8 +3,8 @@
 #include <MultiStepper.h>
 #include "myStepper.h"
 
-int step_rev = 800;
-float speed_set = 400;
+int step_rev = 2000;
+float speed_set = 1000;
 
 myStepper::myStepper() {
   return;
@@ -211,7 +211,11 @@ long clamp_system::move(long position) {
       Serial.println(" guidewire clamped");
 
       Serial.println("stepper on top move back");
-      stepper_on_top.moveRelative(step_rev);
+      // stepper_on_top.moveRelative(step_rev);
+      if(have_top) {
+        if(dir) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev*2);
+        else constSpeed(&stepper_on_top.stepper, speed_set, step_rev*2);
+      }
 
       Serial.println(" guidewire released");
 
@@ -235,7 +239,7 @@ long clamp_system::move(long position) {
 long clamp_system::syncMove(long step_top, long step_bottom) {
   if(!have_top) {
     Serial.println("top");
-    return move(step_top);
+    return move(step_bottom);
   }
 
   Serial.println("bottom");
@@ -303,19 +307,33 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       Serial.println(step_bottom_sync);
       Serial.println("pushback");
       syncMove(step_top_sync, step_bottom_sync);
+      Serial.println("pushback finished");
 
       Serial.print(motor_clamp_pin);
       // Serial.println(" cathether released");
       // Serial.println(" guidewire clamped");
 
-      // Serial.println("stepper on top move back");
-      stepper_on_top.moveRelative(step_rev);
+      Serial.println("stepper on top move back");
+      if(limit_bottom == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev*2);
+      else if(limit_bottom == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev*2);
+      // if(limit_bottom == 2) {
+      //   Serial.println("right");
+      //   stepper_on_top.moveRelative(-step_rev);
+      // }
+      // else if(limit_bottom == 1) {
+      //   Serial.println("left");
+      //   stepper_on_top.moveRelative(step_rev);
+        
+      // }
+      // delay(3000);
+      // Serial.println("hi");
+      
 
       // Serial.println(" guidewire released");
 
       Serial.println("continue the motion");
       long dist_top_not_moved = dist_bottom_not_moved * 125 / 72;
-      syncMove(dist_top_not_moved, dist_bottom_not_moved);
+      syncMove(-dist_top_not_moved, dist_bottom_not_moved);
       
       Serial.println("sync - bottom limit");
       break;
