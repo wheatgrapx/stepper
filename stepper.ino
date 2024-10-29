@@ -28,14 +28,10 @@ void setup() {
   pinMode(limit_bottom_left, INPUT_PULLUP);
   pinMode(limit_bottom_right, INPUT_PULLUP);
   
-  // Set the maximum speed and acceleration:
-  
-
-  
   // homing of steppers
-  delay(1000);
-  homing(stepper_top, stepper_bottom);
-  delay(1000);
+  // delay(1000);
+  // homing(stepper_top, stepper_bottom);
+  // delay(1000);
   
   // position += syncMove(steppers, -step_rev, -step_rev);
   // delay(1000);
@@ -44,40 +40,49 @@ void setup() {
 
 void loop() {
 
-  int dist = 0;
+  int mode = 0;
+  long dist = 0;
 
   if(Serial.available() > 0) {
-    Serial.print("data incoming...");
-    dist = Serial.parseInt();
+    Serial.println("data incoming...");
+    for(int i = 0; i < 2; i++) {
+      if(i) dist = Serial.parseInt();
+      else mode = Serial.parseInt();
+    }
+    Serial.println(mode);
     Serial.println(dist);
+  }
 
-    Serial.println("move motors separately");
-    // position -= system_top.move(dist);
-    // Serial.println(position);
-    // delay(1000);
-    // position -= system_bottom.move(dist);
-    // Serial.println(position);
-    // delay(1000);
+  if(mode == 1) {
+    Serial.println("top move");
+    position -= system_top.move(dist);
+    Serial.print("position in mm: ");
+    Serial.println(position);
+    Serial.println("finished motion");
+    delay(1000);
+  }
+  
+  else if(mode == 2) {
+    Serial.println("bottom move");
+    position -= system_bottom.move(dist);
+    Serial.print("position in mm: ");
+    Serial.println(position);
+    Serial.println("finished motion");
+    delay(1000);
+  }
 
+  else if(mode == 3) {
     long step_bottom = dist;
     long step_top = step_bottom * 125 / 72;
     
     Serial.println("top conveyor stay still");
     position -= system_bottom.syncMove(-step_top, step_bottom);
+    Serial.print("position in mm: ");
     Serial.println(position);
+    Serial.println("finished motion");
     delay(1000);
-    // position -= system_bottom.syncMove(step_top, -step_bottom);
-    // Serial.println(position);
-    // delay(1000);
-    Serial.println("finished");
   }
-
-  // Serial.print(digitalRead(6));
-  // Serial.print(digitalRead(7));
-  // Serial.print(digitalRead(8));
-  // Serial.println(digitalRead(9));
   
-
 }
 
 

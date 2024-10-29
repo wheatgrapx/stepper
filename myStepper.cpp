@@ -42,13 +42,13 @@ bool myStepper::awayFromLimit(long prev_position) {
   if(!digitalRead(limit_left)) {
     Serial.print(dist_back);
     Serial.println(" left_limit");
-    constSpeed(&stepper, speed_set * 0.5, dist_back);
+    constSpeed(&stepper, speed_set, dist_back);
     return 0;
   }
   else if(!digitalRead(limit_right)) {
     Serial.print(dist_back);
     Serial.println(" right_limit");
-    constSpeed(&stepper, speed_set * 0.5, -dist_back);
+    constSpeed(&stepper, speed_set, -dist_back);
     return 1;
   }
   
@@ -181,9 +181,7 @@ long clamp_system::move(long position) {
   else stepper.setSpeed(-speed_set);
   while(stepper.getStepperPosition() != stepper.getTarget()) {
     if(stepper.limit()) {
-      delay(1000);
       bool dir = stepper.awayFromLimit(temp);
-      delay(1000);
 
       long dist_moved = stepper.getStepperPosition() - temp;
       long dist_not_moved = position - dist_moved;
@@ -219,7 +217,6 @@ long clamp_system::move(long position) {
     // Serial.println(stepper.getStepperPosition());
     stepper.run();
   }
-  Serial.println("one motor finished");
   int total = millis() - start;
   Serial.print("time: ");
   Serial.println(total);
@@ -247,9 +244,11 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
 
   steppers.moveTo(positions);
   int start = millis();
+
   while(true) {
     int limit_bottom = stepper.limit();
     int limit_top = stepper_on_top.limit();
+
     if(limit_bottom) {
       long dist_to_prev = abs(stepper_on_top.getStepperPosition() - temp_top);
       long positions_back[2];
@@ -273,7 +272,6 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       steppers.moveTo(positions_back);
       Serial.println("return");
       steppers.runSpeedToPosition();
-      delay(2000);
       
       long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
       long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
@@ -308,6 +306,7 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       Serial.println("sync - bottom limit");
       break;
     }
+
     if(limit_top) {
       if(abs(step_bottom) > 20000) {
         Serial.println("away from limit");
@@ -342,13 +341,11 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       steppers.moveTo(positions_back);
       Serial.println("return");
       steppers.runSpeedToPosition();
-      delay(2000);
 
       Serial.println("top pushback");
       if(limit_top == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev);
       else if(limit_top == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev);
       Serial.println("top pushback finished");
-      delay(1000);
 
       long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
       long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
