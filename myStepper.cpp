@@ -187,19 +187,11 @@ long clamp_system::move(long position) {
 
       long dist_moved = stepper.getStepperPosition() - temp;
       long dist_not_moved = position - dist_moved;
-      Serial.println("dist");
-      Serial.print(stepper.getStepperPosition());
-      Serial.print("\t");
-      Serial.print(temp);
-      Serial.print("\t");
-      Serial.print(dist_moved);
-      Serial.print("\t");
-      Serial.println(dist_not_moved);
 
       Serial.print(motor_clamp_pin);
       Serial.println(" catheter clamped");
 
-      long step_bottom = 6000;
+      long step_bottom = 25000;
       long step_top = step_bottom * 125 / 72;
       if(dir) step_bottom = -step_bottom;
       else step_top = -step_top;
@@ -213,8 +205,8 @@ long clamp_system::move(long position) {
       Serial.println("stepper on top move back");
       // stepper_on_top.moveRelative(step_rev);
       if(have_top) {
-        if(dir) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev*2);
-        else constSpeed(&stepper_on_top.stepper, speed_set, step_rev*2);
+        if(dir) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev * 2);
+        else constSpeed(&stepper_on_top.stepper, speed_set, step_rev * 2);
       }
 
       Serial.println(" guidewire released");
@@ -263,9 +255,6 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       long positions_back[2];
       int step_bottom_predef = step_rev / 4;
       int step_top_predef = step_bottom_predef * 125 / 72;
-      Serial.println("hi");
-      Serial.println(dist_to_prev);
-      Serial.println(step_top_predef);
 
       if(dist_to_prev <= step_top_predef) {
         positions_back[0] = temp_top;
@@ -282,54 +271,35 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
         }
       }
       steppers.moveTo(positions_back);
+      Serial.println("return");
       steppers.runSpeedToPosition();
       delay(2000);
       
       long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
       long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
-      // Serial.println("dist");
-      // Serial.print(stepper.getStepperPosition());
-      // Serial.print("\t");
-      // Serial.print(temp_bottom);
-      // Serial.print("\t");
-      // Serial.print(dist_bottom_moved);
-      // Serial.print("\t");
-      // Serial.println(dist_bottom_not_moved);
+      
+      Serial.print(motor_clamp_pin);
+      Serial.println(" catheter clamped");
 
-      // Serial.print(motor_clamp_pin);
-      // Serial.println(" catheter clamped");
-
-      long step_bottom_sync = 6000;
+      long step_bottom_sync = 25000;
       long step_top_sync = step_bottom_sync * 125 / 72;
       Serial.println(limit_bottom);
       if(limit_bottom == 2) step_bottom_sync = -step_bottom_sync;
       else if(limit_bottom == 1) step_top_sync = -step_top_sync;
       Serial.println(step_bottom_sync);
-      Serial.println("pushback");
+      Serial.println("bottom pushback");
       syncMove(step_top_sync, step_bottom_sync);
-      Serial.println("pushback finished");
+      Serial.println("bottom pushback finished");
 
       Serial.print(motor_clamp_pin);
       // Serial.println(" cathether released");
       // Serial.println(" guidewire clamped");
 
       Serial.println("stepper on top move back");
-      if(limit_bottom == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev*2);
-      else if(limit_bottom == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev*2);
-      // if(limit_bottom == 2) {
-      //   Serial.println("right");
-      //   stepper_on_top.moveRelative(-step_rev);
-      // }
-      // else if(limit_bottom == 1) {
-      //   Serial.println("left");
-      //   stepper_on_top.moveRelative(step_rev);
-        
-      // }
-      // delay(3000);
-      // Serial.println("hi");
+      if(limit_bottom == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev);
+      else if(limit_bottom == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev);
       
-
-      // Serial.println(" guidewire released");
+      Serial.println(" guidewire released");
 
       Serial.println("continue the motion");
       long dist_top_not_moved = dist_bottom_not_moved * 125 / 72;
@@ -339,8 +309,54 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       break;
     }
     if(limit_top) {
-      stepper_on_top.awayFromLimit(temp_top);
-      Serial.println("sync - top limit");
+      if(abs(step_bottom) > 20000) {
+        Serial.println("away from limit");
+        stepper_on_top.awayFromLimit(temp_top);
+        break;
+      }
+      Serial.println(step_bottom);
+      long dist_to_prev = abs(stepper_on_top.getStepperPosition() - temp_top);
+      long positions_back[2];
+      long step_bottom_predef = step_rev / 4;
+      long step_top_predef = step_bottom_predef * 125 / 72;
+
+      if(dist_to_prev <= step_top_predef) {
+        Serial.print("prev");
+        positions_back[0] = temp_top;
+        positions_back[1] = temp_bottom;
+      }
+      else {
+        if(limit_top == 2) {
+          Serial.println("right");
+          Serial.print(step_bottom_predef);
+          Serial.print(step_top_predef);
+          positions_back[0] = -step_top_predef + stepper_on_top.getStepperPosition();
+          positions_back[1] = step_bottom_predef + stepper.getStepperPosition();
+        }
+        else if(limit_top == 1) {
+          Serial.println("left");
+          positions_back[0] = step_top_predef + stepper_on_top.getStepperPosition();
+          positions_back[1] = -step_bottom_predef + stepper.getStepperPosition();
+        }
+      }
+      steppers.moveTo(positions_back);
+      Serial.println("return");
+      steppers.runSpeedToPosition();
+      delay(2000);
+
+      Serial.println("top pushback");
+      if(limit_top == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev);
+      else if(limit_top == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev);
+      Serial.println("top pushback finished");
+      delay(1000);
+
+      long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
+      long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
+
+      Serial.println("continue the motion");
+      long dist_top_not_moved = dist_bottom_not_moved * 125 / 72;
+      syncMove(-dist_top_not_moved, dist_bottom_not_moved);
+
       break;
     }
     if(!steppers.run()) break;
