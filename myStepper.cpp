@@ -4,7 +4,7 @@
 #include "myStepper.h"
 
 int step_rev = 2000;
-float speed_set = 1000;
+float speed_set = 250; // 250 steps/s to avoid sudden movement
 
 myStepper::myStepper() {
   return;
@@ -189,22 +189,27 @@ long clamp_system::move(long position) {
       Serial.print(motor_clamp_pin);
       Serial.println(" catheter clamped");
 
-      long step_bottom = 25000;
-      long step_top = step_bottom * 125 / 72;
-      if(dir) step_bottom = -step_bottom;
-      else step_top = -step_top;
-      Serial.println("pushback");
-      syncMove(step_top, step_bottom);
-
-      Serial.print(motor_clamp_pin);
-      Serial.println(" cathether released");
-      Serial.println(" guidewire clamped");
-
-      Serial.println("stepper on top move back");
-      // stepper_on_top.moveRelative(step_rev);
       if(have_top) {
+        long step_bottom = 25000;
+        long step_top = step_bottom * 125 / 72;
+        if(dir) step_bottom = -step_bottom;
+        else step_top = -step_top;
+        Serial.println("pushback");
+        syncMove(step_top, step_bottom);
+        
+
+        Serial.print(motor_clamp_pin);
+        Serial.println(" cathether released");
+        Serial.println(" guidewire clamped");
+
+        Serial.println("stepper on top move back");
+        // stepper_on_top.moveRelative(step_rev);
         if(dir) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev * 2);
         else constSpeed(&stepper_on_top.stepper, speed_set, step_rev * 2);
+      }
+      else {
+        if(dir) constSpeed(&stepper.stepper, speed_set, -step_rev * 2);
+        else constSpeed(&stepper.stepper, speed_set, step_rev * 2);
       }
 
       Serial.println(" guidewire released");
