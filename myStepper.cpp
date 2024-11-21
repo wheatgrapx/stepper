@@ -376,4 +376,20 @@ void clamp_system::awayFromLimitSync(MultiStepper steppers, long position[]) {
 
 }
 
+void clamp(int A, int B) {
+  digitalWrite(A, HIGH);
+  digitalWrite(B, LOW);
+  delay(500);
+  digitalWrite(A, LOW);
+  digitalWrite(B, LOW);
+}
+
+void release(int A, int B) {
+  digitalWrite(A, LOW);
+  digitalWrite(B, HIGH);
+  delay(500);
+  digitalWrite(A, LOW);
+  digitalWrite(B, LOW);
+}
+
 

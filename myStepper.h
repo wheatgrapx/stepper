@@ -16,8 +16,26 @@
 #define limit_bottom_left 8
 #define limit_bottom_right 9
 
-#define motor_clamp_top 10
-#define motor_clamp_bottom 11
+#define dirPin_guidewire 10
+#define stepPin_guidewire 11
+
+#define dirPin_catheter 12
+#define stepPin_catheter 13
+
+#define motor_guidewire_A 14
+#define motor_guidewire_B 15
+
+#define motor_catheter_A 16
+#define motor_catheter_B 17
+
+#define dirPin_clamp_guidewire 18
+#define stepPin_clamp_guidewire 19
+
+#define dirPin_clamp_catheter 20
+#define stepPin_clamp_catheter 21
+
+#define motor_clamp_top 40 // please ignore
+#define motor_clamp_bottom 41 // please ignore 
 
 class myStepper {
   private:
@@ -60,8 +78,11 @@ void constSpeed(AccelStepper* stepper, float speed, long position);
 void withAccel(AccelStepper* stepper, long position);
 void homing(myStepper top, myStepper bottom);  // move all stepper motors to the right end and set the position as 0 
 
+void clamp(int A, int B);
+void release(int A, int B);
 
 extern float speed_set;
 extern int step_rev;
+
 
 #endif
