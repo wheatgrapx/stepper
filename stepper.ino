@@ -10,6 +10,28 @@
 #include "myStepper.h"
 
 long position = 0;
+int order = 0;
+
+// store the clamp status, false is released, true is clamped
+bool clamped_guidewire = 0;
+bool clamped_catheter = 0;
+bool clamped_guidewire_stepper = 0;
+bool clamped_catheter_stepper = 0;
+
+// predefined flow
+long motions[][2] = {
+  {5, 0},
+  {4, 0},
+  {4, 0},
+  // {1, -1200},
+  // {9, 400},
+  // {1, 500},
+  // {1, -300},
+  // {1, -1200},
+  // {1, 1200},
+  // {9, 400},
+  // {1, -1200}
+};
 
 
 AccelStepper stepper1(1, stepPin_top, dirPin_top);
@@ -48,46 +70,70 @@ void setup() {
   // delay(1000);
   // homing(stepper_top, stepper_bottom);
   // delay(1000);
-  
-  // position += syncMove(steppers, -step_rev, -step_rev);
-  // delay(1000);
+
+  delay(3000);
   Serial.println("begin");
+  release(motor_guidewire_A, motor_guidewire_B);
+  release(motor_catheter_A, motor_catheter_B);
+
+  
 }
 
 void loop() {
 
   int mode = 0;
   long dist = 0;
-  long stepper_clamp = 1000;
+  bool manual = 0;
 
   if(Serial.available() > 0) {
     Serial.println("data incoming...");
-    for(int i = 0; i < 2; i++) {
-      if(i) dist = Serial.parseInt();
-      else mode = Serial.parseInt();
+    for(int i = 0; i < 3; i++) {
+      if(i == 0) mode = Serial.parseInt();
+      else if(i == 1) dist = Serial.parseInt();
+      else if(i == 2) manual = Serial.parseInt();
     }
-    Serial.println(mode);
-    Serial.println(dist);
+    Serial.println("data received");
+    if(manual) {
+      for(int i = 0; i < sizeof(motions) / sizeof(motions[0]); i++) {
+        int mode = motions[order][0];
+        long dist = motions[order][1];
+        order++;
+        Serial.println(mode);
+        Serial.println(dist);
+      
+        motion_control(mode, dist);
+      }
+    }
+    else motion_control(mode, dist);
   }
+  
+}
 
+void motion_control(int mode, long dist) {
+  /*
+  1: top conveyor move
+  2. bottom conveyor move
+  3. top clamp stay still, bottom clamp move
+  4: clamp / release catheter
+  5: clamp / release guidewire
+  6: turn catheter
+  7: turn guidewire
+  8: clamp / release catheter (stepper)
+  9: clamp / release guidewire (stepper)
+  */
+  long stepper_clamp = 1000;
   if(mode == 1) {
     Serial.println("top move");
     position -= system_top.move(dist);
     Serial.print("position in mm: ");
     Serial.println(position);
-    Serial.println("finished motion");
-    delay(1000);
   }
-  
   else if(mode == 2) {
     Serial.println("bottom move");
     position -= system_bottom.move(dist);
     Serial.print("position in mm: ");
     Serial.println(position);
-    Serial.println("finished motion");
-    delay(1000);
   }
-
   else if(mode == 3) {
     long step_bottom = dist;
     long step_top = step_bottom * 125 / 72;
@@ -96,81 +142,75 @@ void loop() {
     position -= system_bottom.syncMove(-step_top, step_bottom);
     Serial.print("position in mm: ");
     Serial.println(position);
-    Serial.println("finished motion");
-    delay(1000);
   }
-  
   else if(mode == 4) {
-    Serial.println("clamping catheter (linear motor)");
-    clamp(motor_catheter_A, motor_catheter_B);
-    delay(1000);
-    
+    if(clamped_catheter) {
+      Serial.println("releasing catheter (linear motor)");
+      release(motor_catheter_A, motor_catheter_B);
+      delay(1000);
+      clamped_catheter = false;
+    }
+    else {
+      Serial.println("clamping catheter (linear motor)");
+      clamp(motor_catheter_A, motor_catheter_B);
+      delay(1000);
+      clamped_catheter = true;
+    }
   }
-
   else if(mode == 5) {
-    Serial.println("clamping guidewire (linear motor)");
-    clamp(motor_guidewire_A, motor_guidewire_B);
-    delay(1000);
+    if(clamped_guidewire) {
+      Serial.println("releasing guidewire (linear motor)");
+      release(motor_guidewire_A, motor_guidewire_B);
+      delay(1000);
+      clamped_guidewire = false;
+    }
+    else {
+      Serial.println("clamping guidewire (linear motor)");
+      clamp(motor_guidewire_A, motor_guidewire_B);
+      delay(1000);
+      clamped_guidewire = true;
+    }
   }
-
   else if(mode == 6) {
-    Serial.println("releasing catheter");
-    release(motor_catheter_A, motor_catheter_B);
-    delay(1000);
-    
-  }
-
-  else if(mode == 7) {
-    Serial.println("releasing guidewire");
-    release(motor_guidewire_A, motor_guidewire_B);
-    delay(1000);
-
-  }
-
-  else if(mode == 8) {
     Serial.println("turning catheter");
     constSpeed(&stepper_catheter, speed_set, dist);
     delay(1000);
-    
   }
-
-  else if(mode == 9) {
+  else if(mode == 7) {
     Serial.println("turning guidewire");
     constSpeed(&stepper_guidewire, speed_set, dist);
     delay(1000);
   }
-
-  else if(mode == 10) {
-    Serial.println("clamping guidewire (stepper motor)");
-    constSpeed(&clamp_guidewire, speed_set, stepper_clamp);
-    Serial.println("hi");
-    delay(1000);
-
+  else if(mode == 8) {
+    if(clamped_catheter_stepper) {
+      Serial.println("releasing catheter (stepper motor)");
+      constSpeed(&clamp_catheter, speed_set, -stepper_clamp);
+      delay(1000);
+      clamped_catheter_stepper = false;
+    }
+    else {
+      Serial.println("clamping catheter (stepper motor)");
+      constSpeed(&clamp_catheter, speed_set, stepper_clamp);
+      delay(1000);
+      clamped_catheter_stepper = true;
+    }
   }
-
-  else if(mode == 11) {
-    Serial.println("clamping catheter (stepper motor)");
-    constSpeed(&clamp_catheter, speed_set, stepper_clamp);
-    Serial.println("hi");
-    delay(1000);
-    
+  else if(mode == 9) {
+    if(clamped_guidewire_stepper) {
+      Serial.println("releasing guidewire (stepper motor)");
+      constSpeed(&clamp_guidewire, speed_set, -stepper_clamp);
+      delay(1000);
+      clamped_guidewire_stepper = false;
+    }
+    else {
+      Serial.println("clamping guidewire (stepper motor)");
+      constSpeed(&clamp_guidewire, speed_set, stepper_clamp);
+      delay(1000);
+      clamped_guidewire_stepper = true;
+    }
   }
-
-  else if(mode == 12) {
-    Serial.println("releasing guidewire (stepper motor)");
-    constSpeed(&clamp_guidewire, speed_set, -stepper_clamp);
-    Serial.println("hi");
-    delay(1000);
-
-  }
-
-  else if(mode == 13) {
-    Serial.println("releasing catheter (stepper motor)");
-    constSpeed(&clamp_catheter, speed_set, -stepper_clamp);
-    Serial.println("hi");
-    delay(1000);
-    
-  }
+  Serial.println("finished motion");
+  delay(1000);
 }
 
 
