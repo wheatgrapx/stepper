@@ -37,8 +37,8 @@ long motions[][2] = {
 AccelStepper stepper1(1, stepPin_top, dirPin_top);
 AccelStepper stepper2(1, stepPin_bottom, dirPin_bottom);
 
-myStepper stepper_top(stepper1, limit_top_left, limit_top_right, 72);
-myStepper stepper_bottom(stepper2, limit_bottom_left, limit_bottom_right, 125);
+myStepper stepper_top(stepper1, limit_top_front, limit_top_back, 72);
+myStepper stepper_bottom(stepper2, limit_bottom_front, limit_bottom_back, 125);
 
 clamp_system system_top(stepper_top, motor_clamp_top, 0);
 clamp_system system_bottom(stepper_bottom, stepper_top, motor_clamp_bottom, 1);
@@ -51,10 +51,10 @@ AccelStepper clamp_catheter(1, stepPin_clamp_catheter, dirPin_clamp_catheter);
 
 void setup() {
   Serial.begin(115200);
-  pinMode(limit_top_left, INPUT_PULLUP);
-  pinMode(limit_top_right, INPUT_PULLUP);
-  pinMode(limit_bottom_left, INPUT_PULLUP);
-  pinMode(limit_bottom_right, INPUT_PULLUP);
+  pinMode(limit_top_front, INPUT_PULLUP);
+  pinMode(limit_top_back, INPUT_PULLUP);
+  pinMode(limit_bottom_front, INPUT_PULLUP);
+  pinMode(limit_bottom_back, INPUT_PULLUP);
 
   pinMode(motor_guidewire_A, OUTPUT);
   pinMode(motor_guidewire_B, OUTPUT);
@@ -84,7 +84,10 @@ void loop() {
   int mode = 0;
   long dist = 0;
   bool manual = 0;
-
+  // Serial.print(digitalRead(limit_top_front));
+  // Serial.print(digitalRead(limit_top_back));
+  // Serial.print(digitalRead(limit_bottom_front));
+  // Serial.println(digitalRead(limit_bottom_back));
   if(Serial.available() > 0) {
     Serial.println("data incoming...");
     for(int i = 0; i < 3; i++) {

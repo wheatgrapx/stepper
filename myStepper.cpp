@@ -180,7 +180,8 @@ long clamp_system::move(long position) {
   if(position > 0) stepper.setSpeed(speed_set);
   else stepper.setSpeed(-speed_set);
   while(stepper.getStepperPosition() != stepper.getTarget()) {
-    if(stepper.limit()) {
+    if(stepper.limit() != 0) {
+      Serial.println(stepper.limit());
       bool dir = stepper.awayFromLimit(temp);
 
       long dist_moved = stepper.getStepperPosition() - temp;
@@ -254,7 +255,7 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
     int limit_bottom = stepper.limit();
     int limit_top = stepper_on_top.limit();
 
-    if(limit_bottom) {
+    if(limit_bottom != 0) {
       long dist_to_prev = abs(stepper_on_top.getStepperPosition() - temp_top);
       long positions_back[2];
       int step_bottom_predef = step_rev / 4;
@@ -312,7 +313,7 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       break;
     }
 
-    if(limit_top) {
+    if(limit_top != 0) {
       if(abs(step_bottom) > 20000) {
         Serial.println("away from limit");
         stepper_on_top.awayFromLimit(temp_top);

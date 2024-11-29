@@ -11,10 +11,10 @@
 #define dirPin_bottom 4
 #define stepPin_bottom 5
 
-#define limit_top_left 6
-#define limit_top_right 7
-#define limit_bottom_left 8
-#define limit_bottom_right 9
+#define limit_top_back 6
+#define limit_top_front 7
+#define limit_bottom_back 8
+#define limit_bottom_front 9
 
 #define dirPin_guidewire 10
 #define stepPin_guidewire 11
