@@ -34,13 +34,9 @@
 #define dirPin_clamp_catheter 20
 #define stepPin_clamp_catheter 21
 
-#define motor_clamp_top 40 // please ignore
-#define motor_clamp_bottom 41 // please ignore 
-
 class myStepper {
   private:
     
-
   public:
     AccelStepper stepper;
     int limit_left;   // input pin of left limit switch
@@ -48,6 +44,7 @@ class myStepper {
     int dist_rev;
     
     myStepper();
+    myStepper(AccelStepper s);
     myStepper(AccelStepper s, int l, int r, int rev);
     void set(float max_speed, float accel);
     void setSpeed(float speed);
@@ -64,13 +61,15 @@ class clamp_system {
     bool have_top;
     myStepper stepper;
     myStepper stepper_on_top;
-    int motor_clamp_pin;
+    myStepper stepper_clamp;
+    myStepper stepper_clamp_on_top;
 
   public:
-    clamp_system(myStepper stepper, int motor_clamp_pin, bool have_top);
-    clamp_system(myStepper stepper, myStepper stepper_on_top, int motor_clamp_pin, bool have_top);
+    clamp_system(myStepper stepper, myStepper stepper_clamp, bool have_top);
+    clamp_system(myStepper stepper, myStepper stepper_on_top, myStepper stepper_clamp, myStepper stepper_clamp_on_top, bool have_top);
     long move(long position);                             // move with speed_default
     long syncMove(long top, long bottom);
+    bool move_stepper_clamp(bool status);
     void awayFromLimitSync(MultiStepper steppers, long position[]);
 };
 

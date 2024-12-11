@@ -10,13 +10,18 @@ myStepper::myStepper() {
   return;
 }
 
+myStepper::myStepper(AccelStepper s) {
+  this->stepper = s;
+  set(speed_set * 4, 500);
+}
+
 
 myStepper::myStepper(AccelStepper s, int l, int r, int rev) {
   this->stepper = s;
   this->limit_left = l;
   this->limit_right = r;
   this->dist_rev = rev;
-  set(speed_set, 500);
+  set(speed_set * 4, 500);
 }
 
 
@@ -90,12 +95,12 @@ void constSpeed(AccelStepper* stepper, float speed, long position) {
   
   stepper->moveTo(pos);
   stepper->setSpeed(speed);
-  int start = millis();
+  long start = millis();
   while(stepper->currentPosition() != pos) {
     stepper->runSpeed();
   }
   stepper->stop();
-  int total = millis() - start;
+  long total = millis() - start;
   Serial.print("time: ");
   Serial.println(total);
   stepper->setSpeed(0);
@@ -121,7 +126,7 @@ void homing(myStepper top, myStepper bottom) {
   top.setSpeed(speed_homing);
   bottom.setSpeed(speed_homing);
 
-  int start = millis();
+  long start = millis();
   while(true) {
     if(top.limit() && bottom.limit()) break;  // exit the while loop when both limits are reached
     if(top.limit() == 0) {                        // stop top motor when limit is reached
@@ -134,7 +139,7 @@ void homing(myStepper top, myStepper bottom) {
     }
     Serial.println();
   }
-  int total = millis() - start;
+  long total = millis() - start;
   Serial.print("time: ");
   Serial.println(total);
   delay(500);
@@ -152,17 +157,18 @@ void homing(myStepper top, myStepper bottom) {
 }
 
 
-clamp_system::clamp_system(myStepper stepper, int motor_clamp_pin, bool have_top) {
+clamp_system::clamp_system(myStepper stepper, myStepper stepper_clamp, bool have_top) {
   this->stepper = stepper;
-  this->motor_clamp_pin = motor_clamp_pin;
+  this->stepper_clamp = stepper_clamp;
   this->have_top = have_top;
 }
 
 
-clamp_system::clamp_system(myStepper stepper, myStepper stepper_on_top, int motor_clamp_pin, bool have_top) {
+clamp_system::clamp_system(myStepper stepper, myStepper stepper_on_top, myStepper stepper_clamp, myStepper stepper_clamp_on_top, bool have_top) {
   this->stepper = stepper;
   this->stepper_on_top = stepper_on_top;
-  this->motor_clamp_pin = motor_clamp_pin;
+  this->stepper_clamp = stepper_clamp;
+  this->stepper_clamp_on_top = stepper_clamp_on_top;
   this->have_top = have_top;
 }
 
@@ -176,7 +182,7 @@ long clamp_system::move(long position) {
   if(position == 0) return 0;
   
   stepper.moveRelative(position);
-  int start = millis();
+  long start = millis();
   if(position > 0) stepper.setSpeed(speed_set);
   else stepper.setSpeed(-speed_set);
   while(stepper.getStepperPosition() != stepper.getTarget()) {
@@ -187,33 +193,68 @@ long clamp_system::move(long position) {
       long dist_moved = stepper.getStepperPosition() - temp;
       long dist_not_moved = position - dist_moved;
 
-      Serial.print(motor_clamp_pin);
-      Serial.println(" catheter clamped");
+      // Serial.println("catheter clamped");
 
       if(have_top) {
         long step_bottom = 25000;
         long step_top = step_bottom * 125 / 72;
         if(dir) step_bottom = -step_bottom;
         else step_top = -step_top;
+
+        Serial.println("clamping catheter (stepper)");
+        constSpeed(&stepper_clamp.stepper, speed_set * 4, -1000);
+
+        Serial.println("releasing catheter (linear motor)");
+        release(motor_catheter_A, motor_catheter_B);
+
         Serial.println("pushback");
         syncMove(step_top, step_bottom);
         
+        Serial.println("clamping catheter (linear motor)");
+        clamp(motor_catheter_A, motor_catheter_B);
 
-        Serial.print(motor_clamp_pin);
-        Serial.println(" cathether released");
-        Serial.println(" guidewire clamped");
+        Serial.println("releasing catheter (stepper)");
+        constSpeed(&stepper_clamp.stepper, speed_set * 4, 1000);
+
+        Serial.println("clamping guidewire (stepper)");
+        constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, -1000);
+
+        Serial.println("releasing guidewire (linear motor)");
+        release(motor_guidewire_A, motor_guidewire_B);
+
+        // Serial.println(" cathether released");
+        // Serial.println(" guidewire clamped");
 
         Serial.println("stepper on top move back");
         // stepper_on_top.moveRelative(step_rev);
-        if(dir) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev * 2);
-        else constSpeed(&stepper_on_top.stepper, speed_set, step_rev * 2);
+        if(dir) constSpeed(&stepper_on_top.stepper, speed_set * 4, -step_rev * 2);
+        else constSpeed(&stepper_on_top.stepper, speed_set * 4, step_rev * 2);
+
+        Serial.println("clamping guidewire (linear motor)");
+        clamp(motor_guidewire_A, motor_guidewire_B);
+
+        Serial.println("releasing guidewire (stepper)");
+        constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, 1000);
       }
       else {
-        if(dir) constSpeed(&stepper.stepper, speed_set, -step_rev * 2);
-        else constSpeed(&stepper.stepper, speed_set, step_rev * 2);
+        Serial.println("clamping guidewire (stepper)");
+        constSpeed(&stepper_clamp.stepper, speed_set * 4, -1000);
+
+        Serial.println("releasing guidewire (linear motor)");
+        release(motor_guidewire_A, motor_guidewire_B);
+
+        Serial.println("moving away");
+        if(dir) constSpeed(&stepper.stepper, speed_set * 4, -step_rev * 2);
+        else constSpeed(&stepper.stepper, speed_set * 4, step_rev * 2);
+
+        Serial.println("clamping guidewire (linear motor)");
+        clamp(motor_guidewire_A, motor_guidewire_B);
+
+        Serial.println("releasing guidewire (stepper)");
+        constSpeed(&stepper_clamp.stepper, speed_set * 4, 1000);
       }
 
-      Serial.println(" guidewire released");
+      // Serial.println(" guidewire released");
 
       Serial.println("continue the motion");
       move(dist_not_moved);
@@ -223,7 +264,7 @@ long clamp_system::move(long position) {
     // Serial.println(stepper.getStepperPosition());
     stepper.run();
   }
-  int total = millis() - start;
+  long total = millis() - start;
   Serial.print("time: ");
   Serial.println(total);
   long dist = (stepper.getStepperPosition() - temp) * stepper.dist_rev / step_rev;
@@ -239,6 +280,8 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
 
   Serial.println("bottom");
   MultiStepper steppers;
+  stepper_on_top.set(speed_set, 500);
+  stepper.set(speed_set, 500);
   steppers.addStepper(stepper_on_top.stepper);
   steppers.addStepper(stepper.stepper);
 
@@ -249,7 +292,7 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
   positions[1] = step_bottom + temp_bottom;
 
   steppers.moveTo(positions);
-  int start = millis();
+  long start = millis();
 
   while(true) {
     int limit_bottom = stepper.limit();
@@ -282,8 +325,13 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
       long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
       
-      Serial.print(motor_clamp_pin);
-      Serial.println(" catheter clamped");
+      // Serial.println("catheter clamped");
+
+      Serial.println("clamping catheter (stepper)");
+      constSpeed(&stepper_clamp.stepper, speed_set * 4, -1000);
+
+      Serial.println("releasing catheter (linear motor)");
+      release(motor_catheter_A, motor_catheter_B);
 
       long step_bottom_sync = 25000;
       long step_top_sync = step_bottom_sync * 125 / 72;
@@ -295,15 +343,30 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       syncMove(step_top_sync, step_bottom_sync);
       Serial.println("bottom pushback finished");
 
-      Serial.print(motor_clamp_pin);
       // Serial.println(" cathether released");
       // Serial.println(" guidewire clamped");
+      Serial.println("clamping catheter (linear motor)");
+      clamp(motor_catheter_A, motor_catheter_B);
+
+      Serial.println("releasing catheter (stepper)");
+      constSpeed(&stepper_clamp.stepper, speed_set * 4, 1000);
+
+      Serial.println("clamping guidewire (stepper)");
+      constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, -1000);
+
+      Serial.println("releasing guidewire (linear motor)");
+      release(motor_guidewire_A, motor_guidewire_B);
 
       Serial.println("stepper on top move back");
       if(limit_bottom == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev);
       else if(limit_bottom == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev);
       
-      Serial.println(" guidewire released");
+      // Serial.println(" guidewire released");
+      Serial.println("clamping guidewire (linear motor)");
+      clamp(motor_guidewire_A, motor_guidewire_B);
+
+      Serial.println("releasing guidewire (stepper)");
+      constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, 1000);
 
       Serial.println("continue the motion");
       long dist_top_not_moved = dist_bottom_not_moved * 125 / 72;
@@ -348,10 +411,22 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
       Serial.println("return");
       steppers.runSpeedToPosition();
 
+      Serial.println("clamping guidewire (stepper)");
+      constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, -1000);
+
+      Serial.println("releasing guidewire (linear motor)");
+      release(motor_guidewire_A, motor_guidewire_B);
+
       Serial.println("top pushback");
       if(limit_top == 2) constSpeed(&stepper_on_top.stepper, speed_set, -step_rev);
       else if(limit_top == 1) constSpeed(&stepper_on_top.stepper, speed_set, step_rev);
       Serial.println("top pushback finished");
+
+      Serial.println("clamping guidewire (linear motor)");
+      clamp(motor_guidewire_A, motor_guidewire_B);
+
+      Serial.println("releasing guidewire (stepper)");
+      constSpeed(&stepper_clamp_on_top.stepper, speed_set * 4, 1000);
 
       long dist_bottom_moved = stepper.getStepperPosition() - temp_bottom;
       long dist_bottom_not_moved = step_bottom - dist_bottom_moved;
@@ -364,10 +439,13 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
     }
     if(!steppers.run()) break;
   }
-  int total = millis() - start;
+  long total = millis() - start;
   Serial.print("time: ");
   Serial.print("\t");
   Serial.println(total);
+
+  stepper_on_top.set(speed_set * 4, 500);
+  stepper.set(speed_set * 4, 500);
 
   long dist = ((stepper_on_top.getStepperPosition() - temp_top) * 72 + (stepper.getStepperPosition() - temp_bottom) * 125) / step_rev;
   return dist;
@@ -375,6 +453,21 @@ long clamp_system::syncMove(long step_top, long step_bottom) {
 
 void clamp_system::awayFromLimitSync(MultiStepper steppers, long position[]) {
 
+}
+
+bool clamp_system::move_stepper_clamp(bool status) {
+  long steps_to_clamp = 1000;
+
+  if(status) {
+    Serial.println("releasing (stepper motor)");
+    constSpeed(&stepper_clamp.stepper, speed_set * 4, -steps_to_clamp);
+    return 0;
+  }
+  else {
+    Serial.println("clamping (stepper motor)");
+    constSpeed(&stepper_clamp.stepper, speed_set * 4, steps_to_clamp);
+    return 1;
+  }
 }
 
 void clamp(int A, int B) {
