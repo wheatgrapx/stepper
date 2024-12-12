@@ -10,7 +10,6 @@
 #include "myStepper.h"
 
 long position = 0;
-int order = 0;
 
 // store the clamp status, false is released, true is clamped
 bool clamped_guidewire = 0;
@@ -18,23 +17,7 @@ bool clamped_catheter = 0;
 bool clamped_guidewire_stepper = 0;
 bool clamped_catheter_stepper = 0;
 
-// predefined flow
-long motions[][2] = {
-  {5, 0},
-  {4, 0},
-  {4, 0},
-  // {1, -1200},
-  // {9, 400},
-  // {1, 500},
-  // {1, -300},
-  // {1, -1200},
-  // {1, 1200},
-  // {9, 400},
-  // {1, -1200}
-};
-
-
-AccelStepper stepper1(1, stepPin_top, dirPin_top);
+AccelStepper stepper1(1, stepPin_top, 2);
 AccelStepper stepper2(1, stepPin_bottom, dirPin_bottom);
 myStepper stepper_top(stepper1, limit_top_front, limit_top_back, 72);
 myStepper stepper_bottom(stepper2, limit_bottom_front, limit_bottom_back, 125);
@@ -51,7 +34,8 @@ clamp_system system_top(stepper_top, clamp_guidewire, 0);
 clamp_system system_bottom(stepper_bottom, stepper_top, clamp_catheter, clamp_guidewire, 1);
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
+
   pinMode(limit_top_front, INPUT_PULLUP);
   pinMode(limit_top_back, INPUT_PULLUP);
   pinMode(limit_bottom_front, INPUT_PULLUP);
@@ -79,36 +63,21 @@ void setup() {
 }
 
 void loop() {
-
   int mode = 0;
   long dist = 0;
   bool manual = 0;
-  // Serial.print(digitalRead(limit_top_front));
-  // Serial.print(digitalRead(limit_top_back));
-  // Serial.print(digitalRead(limit_bottom_front));
-  // Serial.println(digitalRead(limit_bottom_back));
+
   if(Serial.available() > 0) {
-    Serial.println("data incoming...");
-    for(int i = 0; i < 3; i++) {
-      if(i == 0) mode = Serial.parseInt();
-      else if(i == 1) dist = Serial.parseInt();
-      else if(i == 2) manual = Serial.parseInt();
-    }
     Serial.println("data received");
-    if(manual) {
-      for(int i = 0; i < sizeof(motions) / sizeof(motions[0]); i++) {
-        int mode = motions[order][0];
-        long dist = motions[order][1];
-        order++;
-        Serial.println(mode);
-        Serial.println(dist);
-      
-        motion_control(mode, dist);
-      }
-    }
-    else motion_control(mode, dist);
+    mode = Serial.parseInt();
+    Serial.println(mode);
+    dist = 500;
+    if(mode < 0) dist = -500;
+    mode = abs(mode);
+    motion_control(mode, dist);
   }
   
+  delay(10);
 }
 
 void motion_control(int mode, long dist) {
@@ -194,6 +163,8 @@ void motion_control(int mode, long dist) {
   Serial.println("finished motion");
   delay(1000);
 }
+
+
 
 
 
